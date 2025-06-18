@@ -1,7 +1,11 @@
-# Simulate MEGARA's reduction final_rss.fits
-# Date: 28-05-2025
-# María Chillarón
-# Universidad Complutense de Madrid
+#
+# Copyright 2025 Universidad Complutense de Madrid
+#
+# This file is part of megaradrpsimul.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+# License-Filename: LICENSE
+#
 
 from pathlib import Path
 from .reduce_simulations import reduce_simulations
@@ -14,7 +18,6 @@ import shutil
 import subprocess
  
 
-# -------------------------------------------------------------------------
 def get_num_start(results_dir):
     """
     Determine the starting index for naming new simulation output files.
@@ -49,7 +52,7 @@ def get_num_start(results_dir):
     ]
     return max(indices) + 1 if indices else 1
 
-# -------------------------------------------------------------------------
+
 def ask_confirmation(nstart, nsimul, results_dir):
     """
     Prompt the user to confirm whether to proceed with the simulation run.
@@ -79,7 +82,7 @@ def ask_confirmation(nstart, nsimul, results_dir):
     response = input(msg).strip().lower()
     return response == 'y'
 
-# -------------------------------------------------------------------------
+
 def simulate_MEGARA_reductions(ob, nsimul=1, run_modelmap=False, run_twilight=False, history_line_command=None):
     """Simulate MEGARA reductions for a given observation.
 
@@ -218,7 +221,6 @@ def simulate_MEGARA_reductions(ob, nsimul=1, run_modelmap=False, run_twilight=Fa
         # we go back to the directory where the script was executed:
         os.chdir(original_dir)   # Go back to original directory
         print('the directory has been changed to:', os.getcwd())
-
 
 
 
