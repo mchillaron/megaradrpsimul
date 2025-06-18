@@ -12,90 +12,12 @@
 import subprocess
 from astropy.io import fits
 from pathlib import Path
-from datetime import datetime
 import os
 import shutil
 
 from .get_step_name import get_step_name
-
-def step_reduction(yaml_file, step_name, product_file=None, calib_folder_path=None):
-    """Run each reduction step of the pipeline.
-    Parameters
-    ----------
-    yaml_file : str
-        Path to the YAML file.
-    step_name : str
-        The step name extracted from the YAML file.
-    product_file : str, optional
-        The name of the product file to be copied (default is None).
-    calib_folder_path : str, optional
-        The path to the calibration folder (default is None).
-    """
-
-    calib_dir_name = "ca3558e3-e50d-4bbc-86bd-da50a0998a48"
-
-    command_run_list = [
-        """numina""",
-        """run""",
-        f"""{yaml_file}""",
-        """--link-files""",
-        """-r""",
-        """control.yaml"""
-    ]
-    print('\033[1m\033[31m ' + f"$ {' '.join(command_run_list)}" + '\033[0m\n')
-
-    t_start = datetime.now()
-    subprocess.run(command_run_list, capture_output=False, text=True)  # capture_output=True allows to capture stdout and stderr, also add sp = subprocess ...
-    t_stop = datetime.now()
-    #print(f'std_err: {sp.stderr}')
-    #print(f'std_out: {sp.stdout}')
-    print('\033[1m\033[32m ' + f'Elapsed time: {t_stop - t_start}' + '\033[0m\n')
-
-    if product_file!= None and calib_folder_path != None:
-        command_copy_list = [
-            """cp""",
-            f"""obsid{step_name}_results/{product_file}""",
-            f"""{calib_dir_name}/{calib_folder_path}/"""
-        ]
-
-        print('\033[1m\033[31m ' + f"$ {' '.join(command_copy_list)}" + '\033[0m\n')
-        sp = subprocess.run(command_copy_list, capture_output=True, text=True)
-        #print(f'std_err: {sp.stderr}')
-        #print(f'std_out: {sp.stdout}')
-
-def healing_traces(vph_name, step_name):
-    # First, we delete master_traces.json from calibration directory if it exists
-    calib_dir_name = "ca3558e3-e50d-4bbc-86bd-da50a0998a48"
-    calib_path = Path(calib_dir_name) / f"TraceMap/LCB/{vph_name}/master_traces.json"
-    if calib_path.exists():
-        print(f"Deleting existing {calib_path}")
-        calib_path.unlink()
-    else:
-        print(f"No existing {calib_path} to delete.")
-    
-    # Then, we run the healing command
-    command_healing_list = [
-        """megaradrp-heal_traces""",
-        f"""obsid{step_name}_results/reduced_image.fits""",
-        f"""obsid{step_name}_results/master_traces.json""",
-        """--fibids""",
-        """--healing""",
-        """healing.yaml""",
-        """--updated_traces""",
-        f"""obsid{step_name}_results/master_traces_healed.json""",
-        """--pdffile""",
-        f"""obsid{step_name}_results/healed_traces.pdf"""
-    ]
-    print('\033[1m\033[35m ' + f"$ {' '.join(command_healing_list)}" + '\033[0m\n')
-    subprocess.run(command_healing_list, capture_output=True, text=True)
-
-    command_copy_healing_list = [
-        """cp""",
-        f"""obsid{step_name}_results/master_traces_healed.json""",
-        f"""{calib_dir_name}/TraceMap/LCB/{vph_name}/"""
-        ]
-    print('\033[1m\033[35m ' + f"$ {' '.join(command_copy_healing_list)}" + '\033[0m\n')
-    subprocess.run(command_copy_healing_list, capture_output=True, text=True)
+from .step_reduction import step_reduction
+from .healing_traces import healing_traces
 
 def reduce_simulations(niter, nstart, abs_results_dir, run_modelmap=False, run_twilight=False, run_healing=False, run_LRU=False, history_line_command=None):
     """Reduce the simulated images using the TEA pipeline.
