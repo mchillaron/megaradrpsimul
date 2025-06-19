@@ -8,8 +8,8 @@
 #
 
 from pathlib import Path
-from .reduce_simulations import reduce_simulations
-from .simulate_frames import simulate_frames
+from .reduce_simulations.reduce_simulations import reduce_simulations
+from .simulate_frames.simulate_frames import simulate_frames
 
 import argparse
 import os
