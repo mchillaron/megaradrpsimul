@@ -14,6 +14,7 @@ from astropy.io import fits
 from tqdm import tqdm
 
 import numpy as np
+import os
 import pickle
 import teareduce as tea
 
@@ -47,14 +48,19 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
     list_bias = open_read_yaml_simulation(megara_dir, yaml_file_bias)
     print('creating bias frames list')
     
-    bias_cleaned_images = cosmicray_cleaning(list_bias)
-    bias_smoothed_images = smooth_frames(bias_cleaned_images)
+    bias_smoothed_images_file = megara_dir / 'smoothed_bias.pkl'
 
-    with open(work_megara_dir/'smoothed_bias.pkl', 'wb') as f:
-        pickle.dump(bias_smoothed_images, f)
-
-    #with open(work_megara_dir/'smoothed_bias.pkl', 'rb') as f:
-    #    bias_smoothed_images = pickle.load(f)
+    if os.path.exists(bias_smoothed_images_file):
+        with open(bias_smoothed_images_file, 'rb') as f:
+            bias_smoothed_images = pickle.load(f)
+            print("Loaded smoothed bias images from file.")
+    else:
+        # If the bias images have not been smoothed yet, we run the steps and create the pickle file.
+        bias_cleaned_images = cosmicray_cleaning(list_bias)
+        bias_smoothed_images = smooth_frames(bias_cleaned_images)
+        print("Saved smoothed bias images to file.")
+        with open(bias_smoothed_images_file, 'wb') as f:
+            pickle.dump(bias_smoothed_images, f)
 
     # Median of all the smoothed bias images:
     list_smoothed_bias = list(bias_smoothed_images.values())
