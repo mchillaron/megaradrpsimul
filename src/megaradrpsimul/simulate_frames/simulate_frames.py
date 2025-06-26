@@ -25,7 +25,7 @@ from .calculate_bias_readout_noise import calculate_bias_readout_noise
 from .simulate_frames_step import simulate_frames_step
 from .open_read_yaml_simulation import open_read_yaml_simulation
 
-def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
+def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     """Simulate frames for MEGARA data reduction.
     This function simulates the frames for the MEGARA data reduction process.
     It processes bias, trace map, arc calibration, LcbImage, and science object frames.
@@ -38,13 +38,16 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
         Path to the work directory.
     work_megara_dir : Path instance
         Path to the work MEGARA directory.
+    config : dict
+        Dictionary containing the configuration for the simulation.
    
     """
     
     print('starting simulation of frames')
 
     #.................................... BIAS ..........................................
-    yaml_file_bias = list(work_megara_dir.glob('0_*.yaml'))[0]   # it is a path instance
+    bias_filename = config["0_Bias"] + '.yaml'
+    yaml_file_bias = work_megara_dir / bias_filename # it is a path instance
     list_bias = open_read_yaml_simulation(megara_dir, yaml_file_bias)
     print('creating bias frames list')
     
@@ -115,7 +118,8 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
     gain_array[0:2106, :] = gain_bottom.value
 
     #.................................... TRACEMAP ..........................................
-    yaml_file_traces = list(work_megara_dir.glob('1_*.yaml'))[0]
+    traces_filename = config["1_TraceMap"] + '.yaml'
+    yaml_file_traces = work_megara_dir / traces_filename 
     list_traces = open_read_yaml_simulation(megara_dir, yaml_file_traces)
     simulate_frames_step(list_images=list_traces, 
                         naxis1=naxis1,naxis2=naxis2,
@@ -129,7 +133,8 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
 
 
     #.................................... ArcCalibration ....................................
-    yaml_file_arc = list(work_megara_dir.glob('3_*b.yaml'))[0]  # adding the b helps us distinguish between 3_WaveCalib.yaml and 3_WaveCalib_check.yaml
+    arc_filename = config["3_WaveCalib"] + '.yaml'
+    yaml_file_arc = work_megara_dir / arc_filename
     list_arc = open_read_yaml_simulation(megara_dir, yaml_file_arc)
     
     simulate_frames_step(list_images=list_arc,
@@ -143,7 +148,8 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
     print('\033[1m\033[34m ' + "all ArcCalibration images have been simulated" + '\033[0m\n')
     
     # ..................................LcbImage Star ..........................................
-    yaml_file_lcb = list(work_megara_dir.glob('6_*.yaml'))[0]   # it is a path instance
+    lcb_filename = config["6_LcbAdquisition"] + '.yaml'
+    yaml_file_lcb = work_megara_dir / lcb_filename
     list_lcb = open_read_yaml_simulation(megara_dir, yaml_file_lcb)
     
     simulate_frames_step(list_images=list_lcb,
@@ -157,7 +163,8 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir):
     print('\033[1m\033[34m ' + "all LcbImage images have been simulated" + '\033[0m\n')
 
     # ..................................Science Object ..........................................
-    yaml_file_lcb_object = list(work_megara_dir.glob('8_*.yaml'))[0]   # it is a path instance
+    lcb_object_filename = config["8_LcbImage"] + '.yaml'
+    yaml_file_lcb_object = work_megara_dir / lcb_object_filename
     list_lcb_object = open_read_yaml_simulation(megara_dir, yaml_file_lcb_object)
     simulate_frames_step(list_images=list_lcb_object,
                         naxis1=naxis1,naxis2=naxis2,
