@@ -23,7 +23,7 @@ The code will be now ready to use!
 $ megaradrp-simulation -h
 megaradrp-simulation [-h] [--obj_name OBJ_NAME] [--vph VPH]
                             [-c CONFIG_FILE] [-n NUM_SIMUL] [--run_modelmap]
-                            [--run_twilight] [--run_diffuselight]
+                            [--run_twilight]
 
 Simulate MEGARA reductions.
 
@@ -37,5 +37,4 @@ optional arguments:
                         Number of simulations to perform.
   --run_modelmap        Run ModelMap step.
   --run_twilight        Run Twilight step.
-  --run_diffuselight    Run DiffuseLight step.
   ```
