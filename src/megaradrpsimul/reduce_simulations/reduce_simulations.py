@@ -17,6 +17,7 @@ import shutil
 from .get_step_name import get_step_name
 from .step_reduction import step_reduction
 from .healing_traces import healing_traces
+from .diffuselight_determination import diffuselight_determination
 
 def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=False, run_twilight=False, run_healing=False, run_LRU=False, run_diffuselight=False, history_line_command=None):
     """Reduce the simulated images using the TEA pipeline.
@@ -46,6 +47,7 @@ def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=Fals
     """
     
     print('we start the reduction process')
+    num = niter + nstart
     vph_name = config["VPH"]
 
     print('........... Step 0: Bias image ...........')
@@ -118,19 +120,33 @@ def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=Fals
     step_name = get_step_name(standardstar_filename)
     print('Step name:', step_name)
     step_reduction(standardstar_filename, step_name, product_file="master_sensitivity.fits", calib_folder_path=f"MasterSensitivity/LCB/{vph_name}")
-
+    
     print('........... Step 8: Reduce LCB ...........')
     reduce_filename = config["8_LcbImage"] + '.yaml'
-    step_name = get_step_name(reduce_filename)
-    print('Step name:', step_name)
-    step_reduction(reduce_filename, step_name)
+    step_name_8, extraction_offset = get_step_name(reduce_filename, extraction_offset=True)
+    print('Step name:', step_name_8)
+    print('Extraction offset:', extraction_offset)
+    step_reduction(reduce_filename, step_name_8)
 
-    print('End of the reduction process')
+    if run_diffuselight == True:
+        print("Correcting for diffuse light")
+        diffuselight_determination(vph_name, step_name_8, run_LRU, run_healing, extraction_offset)
+
+        # Now we run again the 8th step of the reduction process, but using the new yaml file:
+        diffuselight_filename = config["8_LcbImage_diffuse_light"] + '.yaml'
+        step_name_difflight = get_step_name(diffuselight_filename)
+        print('Step name:', step_name_difflight)
+        step_reduction(diffuselight_filename, step_name_difflight)
+
+        # Change the name of the final_rss.fits file to the name of the simulation
+        original_file = f"obsid{step_name_difflight}_results/final_rss.fits"
+        new_file = f"obsid{step_name_difflight}_results/final_rss_{num:04d}.fits"
+    else:
+        # Change the name of the final_rss.fits file to the name of the simulation
+        original_file = f"obsid{step_name_8}_results/final_rss.fits"
+        new_file = f"obsid{step_name_8}_results/final_rss_{num:04d}.fits"
     
-    num = niter + nstart
-    # Change the name of the final_rss.fits file to the name of the simulation
-    original_file = f"obsid{step_name}_results/final_rss.fits"
-    new_file = f"obsid{step_name}_results/final_rss_{num:04d}.fits"
+    print('End of the reduction process')
 
     if os.path.exists(original_file):
         os.rename(original_file, new_file)

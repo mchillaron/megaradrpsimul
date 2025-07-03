@@ -10,8 +10,9 @@
 """Determine the diffuse light for the given VPH and step name."""
 
 import subprocess
-
-def diffuselight_determination(vph_name, step_name_8, run_LRU, run_healing):
+from datetime import datetime
+    
+def diffuselight_determination(vph_name, step_name_8, run_LRU, run_healing, extraction_offset):
     """Determine the diffuse light for the given VPH and step name. 
     Parameters
     ----------
@@ -44,11 +45,15 @@ def diffuselight_determination(vph_name, step_name_8, run_LRU, run_healing):
         """-t""",
         f"""{traces_file_for_this_step}""",
         """-s""",
-        """-3""",
+        f"""{extraction_offset}""",
         """-p""",
         """data/plots_2D.pdf""",
         """-2D"""
     ]
 
     print('\033[1m\033[35m ' + f"$ {' '.join(command_diffuselight_list)}" + '\033[0m\n')
-    subprocess.run(command_diffuselight_list, capture_output=True, text=True)
+    t_start = datetime.now()
+    subprocess.run(command_diffuselight_list, capture_output=False, text=True)
+    t_stop = datetime.now()
+
+    print('\033[1m\033[32m ' + f'Elapsed time: {t_stop - t_start}' + '\033[0m\n')
