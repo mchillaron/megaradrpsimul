@@ -18,7 +18,7 @@ from .get_step_name import get_step_name
 from .step_reduction import step_reduction
 from .healing_traces import healing_traces
 
-def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=False, run_twilight=False, run_healing=False, run_LRU=False, history_line_command=None):
+def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=False, run_twilight=False, run_healing=False, run_LRU=False, run_diffuselight=False, history_line_command=None):
     """Reduce the simulated images using the TEA pipeline.
 
     Parameters
@@ -35,7 +35,14 @@ def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=Fals
         If True, run the ModelMap step (default is False).
     run_twilight : bool, optional
         If True, run the TwilightFlat step (default is False).
-    
+    run_healing : bool, optional
+        If True, run the healing of the traces (default is False).
+    run_LRU : bool, optional
+        If True, run the special TraceMap template for LR-U (default is False).
+    run_diffuselight : bool, optional
+        If True, run the DiffuseLight step (default is False).
+    history_line_command : str, optional
+        Command line to be added to the HISTORY keyword of the final_rss.fits file (default is None).
     """
     
     print('we start the reduction process')
