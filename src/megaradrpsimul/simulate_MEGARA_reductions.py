@@ -89,7 +89,6 @@ def simulate_MEGARA_reductions(ob,
                                nsimul=1, 
                                run_modelmap=False, 
                                run_twilight=False, 
-                               run_diffuselight=False,
                                history_line_command=None):
    
     """Simulate MEGARA reductions for a given observation.
@@ -113,8 +112,6 @@ def simulate_MEGARA_reductions(ob,
         If True, run the ModelMap step (default is False).
     run_twilight : bool, optional
         If True, run the Twilight step (default is False).
-    run_diffuselight : bool, optional
-        If True, run the determination of diffuse light step (default is False).
     history_line_command : str, optional
         Command line history for the simulation (default is None).
 
@@ -138,7 +135,7 @@ def simulate_MEGARA_reductions(ob,
         expected_keys = [
             "VPH", "0_Bias", "1_TraceMap", "2_ModelMap", "3_WaveCalib", "3_WaveCalib_check",
             "4_FiberFlat", "5_TwilightFlat", "6_LcbAdquisition", "7_StandardStar",
-            "8_LcbImage", "8_LcbImage_diffuse_light", "healing", "master_traces_LRU_20220325_healed"
+            "8_LcbImage","8_LcbImage_diffuse_light", "healing", "master_traces_LRU_20220325_healed"
         ]
 
         # 1. Check if all expected keys are present in the configuration file
@@ -163,8 +160,6 @@ def simulate_MEGARA_reductions(ob,
             raise ValueError("The key '2_ModelMap' in the config_simulation.yaml file must have a value because run_modelmap=True.")
         if run_twilight and not config.get("5_TwilightFlat"):
             raise ValueError("The key '5_TwilightFlat' in the config_simulation.yaml file must have a value because run_twilight=True.")
-        if run_diffuselight and not config.get("8_LcbImage_diffuse_light"):
-            raise ValueError("The key '8_LcbImage_diffuse_light' in the config_simulation.yaml file must have a value because run_diffuselight=True.")
         vph_value = config.get("VPH", "")
         if isinstance(vph_value, str) and vph_value.endswith("U"):
             if not config.get("master_traces_LRU_20220325_healed"):
@@ -248,6 +243,18 @@ def simulate_MEGARA_reductions(ob,
             run_LRU = False
             print("No VPH-U traces template for this simulation and reduction")
 
+        # If the 8_LcbImage_diffuse_light.yaml file exists, set run_diffuselight to True
+        if config.get("8_LcbImage_diffuse_light"):
+            diffuse_light_filename = config["8_LcbImage_diffuse_light"] + '.yaml'
+            diffuse_light_yaml_path = work_megara_dir / diffuse_light_filename
+            run_diffuselight = diffuse_light_yaml_path.is_file()
+            print('run_diffuselight is set to:', run_diffuselight)
+            if not run_diffuselight:
+                raise FileNotFoundError(f"The file needed for 'diffuse light' step: {diffuse_light_yaml_path} was not found.")
+        else:
+            run_diffuselight = False
+            print("No diffuse light for this simulation and reduction.")
+
         # Now, we copy the data/ directory from MEGARA to work
         data_dir = megara_dir / 'data'
         data_work_dir = work_megara_dir / 'data'
@@ -285,7 +292,7 @@ def simulate_MEGARA_reductions(ob,
         os.chdir(reduction_dir)
         print('the directory has been changed to:', os.getcwd())
         
-        reduce_simulations(i, config, nstart, abs_results_dir, run_modelmap, run_twilight, run_healing, run_LRU, history_line_command)
+        reduce_simulations(i, config, nstart, abs_results_dir, run_modelmap, run_twilight, run_healing, run_LRU, run_diffuselight, history_line_command)
         
         # we go back to the directory where the script was executed:
         os.chdir(original_dir)   # Go back to original directory
@@ -301,7 +308,7 @@ def main():
     parser.add_argument('-n', '--num_simul', type=int, help='Number of simulations to perform.', default=1)
     parser.add_argument('--run_modelmap', action='store_true', help='Run ModelMap step.')
     parser.add_argument('--run_twilight', action='store_true', help='Run Twilight step.')
-    parser.add_argument('--run_diffuselight', action='store_true', help='Run DiffuseLight step.')
+    #parser.add_argument('--run_diffuselight', action='store_true', help='Run DiffuseLight step.')
     args = parser.parse_args()
 
     obj_vph = f'{args.obj_name}/{args.vph}'
@@ -309,10 +316,8 @@ def main():
     config_file = args.config_file
     run_modelmap = args.run_modelmap
     run_twilight = args.run_twilight
-    run_diffuselight = args.run_diffuselight
     print(f"Running ModelMap: {run_modelmap}")
     print(f"Running Twilight: {run_twilight}")
-    print(f"Running DiffuseLight: {run_diffuselight}")
     
     history_line_command = (
             f"$ python simulate_MEGARA_reductions.py "
@@ -321,7 +326,6 @@ def main():
             f"--num_simul {args.num_simul} "
             f"{'--run_modelmap' if run_modelmap else ''} "
             f"{'--run_twilight' if run_twilight else ''}"
-            f"{'--run_diffuselight' if run_diffuselight else ''}"
         )
     print(history_line_command)
     
@@ -335,7 +339,7 @@ def main():
         print(f"No galaxies found with name {obj_vph}")
         return
     for ob in ob_list:
-        simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, run_diffuselight, history_line_command)
+        simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, history_line_command)
         
 
 if __name__ == "__main__":
