@@ -89,6 +89,7 @@ def simulate_MEGARA_reductions(ob,
                                nsimul=1, 
                                run_modelmap=False, 
                                run_twilight=False, 
+                               pixel_size=0.4,
                                history_line_command=None):
    
     """Simulate MEGARA reductions for a given observation.
@@ -112,6 +113,8 @@ def simulate_MEGARA_reductions(ob,
         If True, run the ModelMap step (default is False).
     run_twilight : bool, optional
         If True, run the Twilight step (default is False).
+    pixel_size : float, optional
+        Pixel size in arcseconds for the conversion of RSS into a cube (default is 0.4).
     history_line_command : str, optional
         Command line history for the simulation (default is None).
 
@@ -292,11 +295,11 @@ def simulate_MEGARA_reductions(ob,
         os.chdir(reduction_dir)
         print('the directory has been changed to:', os.getcwd())
         
-        reduce_simulations(i, config, nstart, abs_results_dir, run_modelmap, run_twilight, run_healing, run_LRU, run_diffuselight, history_line_command)
+        reduce_simulations(i, config, nstart, abs_results_dir, run_modelmap, run_twilight, run_healing, run_LRU, run_diffuselight, pixel_size, history_line_command)
         
         # we go back to the directory where the script was executed:
         os.chdir(original_dir)   # Go back to original directory
-        print('the directory has been changed to:', os.getcwd())
+        print('the directory has been changed to:', os.getcwd())   
 
 
 
@@ -308,7 +311,7 @@ def main():
     parser.add_argument('-n', '--num_simul', type=int, help='Number of simulations to perform.', default=1)
     parser.add_argument('--run_modelmap', action='store_true', help='Run ModelMap step.')
     parser.add_argument('--run_twilight', action='store_true', help='Run Twilight step.')
-    #parser.add_argument('--run_diffuselight', action='store_true', help='Run DiffuseLight step.')
+    parser.add_argument('--pixel_size', type=float, help='Pixel size in arcseconds for the conversion of RSS into a cube.', default=0.4)
     args = parser.parse_args()
 
     obj_vph = f'{args.obj_name}/{args.vph}'
@@ -316,6 +319,7 @@ def main():
     config_file = args.config_file
     run_modelmap = args.run_modelmap
     run_twilight = args.run_twilight
+    pixel_size = args.pixel_size
     print(f"Running ModelMap: {run_modelmap}")
     print(f"Running Twilight: {run_twilight}")
     
@@ -326,6 +330,7 @@ def main():
             f"--num_simul {args.num_simul} "
             f"{'--run_modelmap' if run_modelmap else ''} "
             f"{'--run_twilight' if run_twilight else ''}"
+            f" --pixel_size {pixel_size}"
         )
     print(history_line_command)
     
@@ -334,12 +339,15 @@ def main():
     else:
         print(f"Number of simulations: {args.num_simul}")
         nsimul = args.num_simul
-
+    if pixel_size <= 0:
+        raise ValueError("Pixel size must be a positive number.")
+    else:
+        print(f"Pixel size: {pixel_size} arcseconds")
     if not ob_list:
         print(f"No galaxies found with name {obj_vph}")
         return
     for ob in ob_list:
-        simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, history_line_command)
+        simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, pixel_size, history_line_command)
         
 
 if __name__ == "__main__":

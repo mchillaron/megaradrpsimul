@@ -14,12 +14,19 @@ from astropy.io import fits
 import os
 import shutil
 
+from .conversion_into_cube import conversion_into_cube
 from .get_step_name import get_step_name
 from .step_reduction import step_reduction
 from .healing_traces import healing_traces
 from .diffuselight_determination import diffuselight_determination
 
-def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=False, run_twilight=False, run_healing=False, run_LRU=False, run_diffuselight=False, history_line_command=None):
+def reduce_simulations(niter, config, nstart, 
+                       abs_results_dir, 
+                       run_modelmap=False, run_twilight=False, 
+                       run_healing=False, run_LRU=False, 
+                       run_diffuselight=False, 
+                       pixel_size=0.4, 
+                       history_line_command=None):
     """Reduce the simulated images using the TEA pipeline.
 
     Parameters
@@ -42,6 +49,8 @@ def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=Fals
         If True, run the special TraceMap template for LR-U (default is False).
     run_diffuselight : bool, optional
         If True, run the DiffuseLight step (default is False).
+    pixel_size : float, optional
+        Pixel size in arcseconds for the conversion of RSS into a cube (default is 0.4).
     history_line_command : str, optional
         Command line to be added to the HISTORY keyword of the final_rss.fits file (default is None).
     """
@@ -161,11 +170,19 @@ def reduce_simulations(niter, config, nstart, abs_results_dir, run_modelmap=Fals
     dest_file = os.path.join(abs_results_dir, os.path.basename(new_file))
     # If there is already a file with the same name in the results directory, we overwrite it
     if os.path.exists(dest_file):
-        os.remove(dest_file)  # Elimina el archivo para poder mover el nuevo
+        os.remove(dest_file)  # Eliminate the existing file to move the new one
         print(f"Existing {dest_file} being deleted.")
 
     shutil.move(new_file, abs_results_dir)
     print(f"Moved {new_file} to {abs_results_dir}")
+
+    # Conversion of the RSS into a cube with the pixel size specified
+    print('Converting the RSS into a cube with a pixel size of', pixel_size, 'arcseconds')
+    cube_name = f"final_cube_{num:04d}.fits"
+    dest_cube_file = os.path.join(abs_results_dir, cube_name)
+    print(dest_cube_file)
+
+    conversion_into_cube(pixel_size, dest_cube_file, dest_file)
 
 
     print('the simulation and reduction processes have finished')
