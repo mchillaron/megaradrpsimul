@@ -37,4 +37,7 @@ optional arguments:
                         Number of simulations to perform.
   --run_modelmap        Run ModelMap step.
   --run_twilight        Run Twilight step.
+  --pixel_size PIXEL_SIZE
+                        Pixel size in arcseconds for the conversion of RSS
+                        into a cube.
   ```
