@@ -54,7 +54,9 @@ def get_num_start(results_dir):
     return max(indices) + 1 if indices else 1
 
 
-def ask_confirmation(nstart, nsimul, results_dir):
+def ask_confirmation(nstart, 
+                    nsimul, 
+                    results_dir):
     """
     Prompt the user to confirm whether to proceed with the simulation run.
 
@@ -138,7 +140,8 @@ def simulate_MEGARA_reductions(ob,
         expected_keys = [
             "VPH", "0_Bias", "1_TraceMap", "2_ModelMap", "3_WaveCalib", "3_WaveCalib_check",
             "4_FiberFlat", "5_TwilightFlat", "6_LcbAdquisition", "7_StandardStar",
-            "8_LcbImage","8_LcbImage_diffuse_light", "healing", "master_traces_LRU_20220325_healed"
+            "8_LcbImage", "8_LcbImage_diffuse_light", "healing", #"8_generate_crmasks", 
+            "master_traces_LRU_20220325_healed"
         ]
 
         # 1. Check if all expected keys are present in the configuration file
@@ -152,7 +155,7 @@ def simulate_MEGARA_reductions(ob,
         # 2. Keys that must have non-empty values for reduction process
         mandatory_keys = [
             "VPH", "0_Bias", "1_TraceMap", "3_WaveCalib", "3_WaveCalib_check",
-            "4_FiberFlat", "6_LcbAdquisition", "7_StandardStar", "8_LcbImage"
+            "4_FiberFlat", "6_LcbAdquisition", "7_StandardStar", "8_LcbImage" #"8_generate_crmasks",
         ]
         for key in mandatory_keys:
             if not config.get(key):
@@ -264,7 +267,7 @@ def simulate_MEGARA_reductions(ob,
 
         ignored_data_files = []
         for file in data_dir.iterdir():
-            if file.name.startswith('0') and file.name.endswith('.fits'):
+            if file.name.startswith('0') and file.name.endswith('.fits'):  #or file.name == 'crmask.fits':
                 ignored_data_files.append(file.name)
 
         # Copy the data directory to work, ignoring the files in ignored_data_files

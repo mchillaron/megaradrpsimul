@@ -51,7 +51,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     list_bias = open_read_yaml_simulation(megara_dir, yaml_file_bias)
     print('creating bias frames list')
     
-    bias_smoothed_images_file = megara_dir / 'smoothed_bias.pkl'
+    bias_smoothed_images_file = megara_dir / 'simul-output_smoothed_bias.pkl'
 
     if os.path.exists(bias_smoothed_images_file):
         with open(bias_smoothed_images_file, 'rb') as f:
@@ -122,6 +122,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     yaml_file_traces = work_megara_dir / traces_filename 
     list_traces = open_read_yaml_simulation(megara_dir, yaml_file_traces)
     simulate_frames_step(list_images=list_traces, 
+                        megara_dir=megara_dir,
                         naxis1=naxis1,naxis2=naxis2,
                         data_work_dir=data_work_dir,
                         name_step='TraceMap',
@@ -131,13 +132,13 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     
     print('\033[1m\033[34m ' + "all TraceMap images have been simulated" + '\033[0m\n')
 
-
     #.................................... ArcCalibration ....................................
     arc_filename = config["3_WaveCalib"] + '.yaml'
     yaml_file_arc = work_megara_dir / arc_filename
     list_arc = open_read_yaml_simulation(megara_dir, yaml_file_arc)
     
     simulate_frames_step(list_images=list_arc,
+                        megara_dir=megara_dir,
                         naxis1=naxis1,naxis2=naxis2,
                         data_work_dir=data_work_dir,
                         name_step='ArcCalibration',
@@ -153,6 +154,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     list_lcb = open_read_yaml_simulation(megara_dir, yaml_file_lcb)
     
     simulate_frames_step(list_images=list_lcb,
+                        megara_dir=megara_dir,
                         naxis1=naxis1,naxis2=naxis2,
                         data_work_dir=data_work_dir,
                         name_step='LcbImage',
@@ -167,6 +169,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     yaml_file_lcb_object = work_megara_dir / lcb_object_filename
     list_lcb_object = open_read_yaml_simulation(megara_dir, yaml_file_lcb_object)
     simulate_frames_step(list_images=list_lcb_object,
+                        megara_dir=megara_dir,
                         naxis1=naxis1,naxis2=naxis2,
                         data_work_dir=data_work_dir,
                         name_step='Science LcbImage',

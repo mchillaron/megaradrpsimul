@@ -18,6 +18,7 @@ VPH: LR-R
 7_StandardStar: 7_Standardstar
 8_LcbImage: 8_reduce_LCB
 8_LcbImage_diffuse_light:
+# 8_generate_crmasks: 8_generate_crmasks
 
 healing: healing
 master_traces_LRU_20220325_healed:

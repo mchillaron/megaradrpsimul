@@ -11,7 +11,7 @@
 
 import numpy as np
 
-def calculate_image_noise(data_model_traces, gain_array, readout_noise_median):
+def calculate_image_noise(data_model_corrected, gain_array, readout_noise_median):
     """
     Calculate the total noise in an image considering photon shot noise and readout noise.
 
@@ -22,11 +22,11 @@ def calculate_image_noise(data_model_traces, gain_array, readout_noise_median):
 
     Parameters
     ----------
-    data_model_traces : ndarray
+    data_model_corrected : ndarray
         2D array (or broadcastable shape) of the modelled signal in ADU.
     gain_array : ndarray or float
         2D array or scalar representing the gain (electrons per ADU) for each pixel.
-        Must be broadcast-compatible with `data_model_traces`.
+        Must be broadcast-compatible with `data_model_corrected`.
     readout_noise_median : float or ndarray
         Scalar or array with the median readout noise (in ADU). Can be a single value
         or an array matching the shape of the image.
@@ -34,7 +34,7 @@ def calculate_image_noise(data_model_traces, gain_array, readout_noise_median):
     Returns
     -------
     noise_array : ndarray
-        Array of the same shape as `data_model_traces` containing the estimated noise per pixel,
+        Array of the same shape as `data_model_corrected` containing the estimated noise per pixel,
         in ADU.
 
     Notes
@@ -47,7 +47,7 @@ def calculate_image_noise(data_model_traces, gain_array, readout_noise_median):
     - signal / gain → photon shot noise (in electrons)
     - readout_noise**2 → detector noise (in ADU^2), added in quadrature
     """
-    ratio_data_gain = data_model_traces / gain_array
+    ratio_data_gain = data_model_corrected / gain_array
     readout_noise_square = readout_noise_median ** 2
     noise_array = np.sqrt(ratio_data_gain + readout_noise_square)
     return noise_array
