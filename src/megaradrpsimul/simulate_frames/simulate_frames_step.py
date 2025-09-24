@@ -10,8 +10,10 @@
 """Simulate frames for a specific step (e.g., TraceMap, ArcCalibration)."""
 
 from astropy import units as u
+from astropy.io import fits
 from tqdm import tqdm
 import numpy as np
+import os
 import teareduce as tea
 
 from megaradrpsimul import CCDregions
@@ -20,6 +22,7 @@ from .calculate_median_offsets import calculate_median_offsets
 from .simulation_run_save import simulation_run_save
 
 def simulate_frames_step(list_images, 
+                        megara_dir,
                         naxis1, naxis2,
                         data_work_dir,
                         name_step, 
@@ -36,6 +39,8 @@ def simulate_frames_step(list_images,
         ----------
         list_images : list of Path instances
             List of image paths to be processed.
+        megara_dir : Path instance
+            Path to the MEGARA directory.
         naxis1 : int
             Number of columns (X-axis size) of the CCD image.
         naxis2 : int
@@ -53,15 +58,53 @@ def simulate_frames_step(list_images,
             2D array with the median readout noise (in ADU) for each pixel. 
 
         """
-        median_image, image_single_median_offsets, top_bias_median_offset, bottom_bias_median_offset = calculate_median_offsets(list_images, bias_smoothed_median)
-        print(f'median image for {name_step} frames calculated')
 
-        data_model = median_image - bias_smoothed_median
-        data_model_corrected = data_model.copy()
-        data_model_corrected[CCDregions.topCCD_full.python] += top_bias_median_offset 
-        data_model_corrected[CCDregions.bottomCCD_full.python] += bottom_bias_median_offset
-        data_model_corrected[data_model_corrected < 0] = 0
-        print(f'Corrected {name_step} data model obtained for generator')
+        data_model_corrected_file = megara_dir / f'simul-output_data_model_corrected_{name_step}.fits'
+
+        if os.path.exists(data_model_corrected_file):
+            print(f"Loading existing {data_model_corrected_file}")
+            with fits.open(data_model_corrected_file) as hdul:
+                data_model_corrected = hdul[0].data
+                header = hdul[0].header
+                top_bias_median_offset = header['TOPBIAS']
+                bottom_bias_median_offset = header['BOTBIAS']
+                image_single_median_offsets = []
+                for i in range(len(list_images)):
+                    top_offset = header[f'IMG{i}_TOP']
+                    bottom_offset = header[f'IMG{i}_BOT']
+                    image_single_median_offsets.append((top_offset, bottom_offset))
+
+            # Print offsets information    
+            print("Offsets of Median image - Individual image:")
+            for i, offsets in enumerate(image_single_median_offsets):
+                print(f"Image {i}: Top offset = {offsets[0]}, Bottom offset = {offsets[1]}")
+            print("Offset of MasterBias - Median image:")
+            print(f"Top offset = {top_bias_median_offset}, Bottom offset = {bottom_bias_median_offset}")
+
+            
+        else:
+            median_image, image_single_median_offsets, top_bias_median_offset, bottom_bias_median_offset = calculate_median_offsets(list_images, bias_smoothed_median)
+            print(f'median image for {name_step} frames calculated')
+
+            data_model = median_image - bias_smoothed_median
+            data_model_corrected = data_model.copy()
+            data_model_corrected[CCDregions.topCCD_full.python] += top_bias_median_offset 
+            data_model_corrected[CCDregions.bottomCCD_full.python] += bottom_bias_median_offset
+            data_model_corrected[data_model_corrected < 0] = 0
+            print(f'Corrected {name_step} data model obtained for generator')
+
+            # we create the header for the FITS file:
+            header = fits.Header()
+            header['TOPBIAS'] = (top_bias_median_offset, 'Bias median offset applied to top CCD')
+            header['BOTBIAS'] = (bottom_bias_median_offset, 'Bias median offset applied to bottom CCD')
+
+            for i, offset in enumerate(image_single_median_offsets):
+                header[f'IMG{i}_TOP'] = (offset[0], f'Top CCD offset for image {i}')
+                header[f'IMG{i}_BOT'] = (offset[1], f'Bottom CCD offset for image {i}')
+            
+            hdu = fits.PrimaryHDU(data_model_corrected, header=header)
+            hdu.writeto(data_model_corrected_file, overwrite=True)
+            print(f"Saved {data_model_corrected_file}")
         
         noise_array = calculate_image_noise(data_model_corrected, gain_array, readout_noise_median)
         
