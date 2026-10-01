@@ -2,10 +2,9 @@
 # --------------------------------------------------------
 # Left-side name = Key used by the code; Right-side name = User-defined filename
 # All filenames are compulsory to run the MEGARA DRP, except for 2_ModelMap, 5_TwilightFlat, 
-# 8_LcbImage_diffuse_light and healing.
-# If VPH is LR-U, master_traces_LRU_20220325_healed(.json) file is compulsory.
+# 8_LcbImage_diffuse_light, 8_LcbImage_cleaned, healing and master_traces_LRU_20220325_healed(.json) files.
 
-VPH: LR-R
+VPH: 
 
 0_Bias: 0_bias
 1_TraceMap: 1_tracemap
@@ -18,7 +17,7 @@ VPH: LR-R
 7_StandardStar: 7_Standardstar
 8_LcbImage: 8_reduce_LCB
 8_LcbImage_diffuse_light:
-# 8_generate_crmasks: 8_generate_crmasks
+8_LcbImage_cleaned: 
 
-healing: healing
+healing: 
 master_traces_LRU_20220325_healed:
