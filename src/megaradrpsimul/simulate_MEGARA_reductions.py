@@ -12,12 +12,14 @@ from .reduce_simulations.reduce_simulations import reduce_simulations
 from .simulate_frames.simulate_frames import simulate_frames
 
 import argparse
+import logging
 import os
 import re
 import shutil
 import subprocess
 import yaml
  
+logger = logging.getLogger(__name__)
 
 def get_num_start(results_dir):
     """
@@ -40,10 +42,10 @@ def get_num_start(results_dir):
     """
     if not results_dir.is_dir():
         results_dir.mkdir(exist_ok=True)
-        print('New simulation results directory created:', results_dir)
+        logger.info('New simulation results directory created: %s', results_dir)
         return 1
 
-    print('previous simulation results directory will be used to save final_rss.fits')
+    logger.info('previous simulation results directory will be used to save final_rss.fits')
     existing_files = os.listdir(results_dir)
     pattern = re.compile(r"final_rss_(\d{4})\.fits")
     indices = [
@@ -121,188 +123,264 @@ def simulate_MEGARA_reductions(ob,
         Command line history for the simulation (default is None).
 
     """
-    
-    print('Simulating MEGARA reductions for:', ob)
+
+    logger.info('Simulating MEGARA reductions for: %s', ob)
 
     # Check if MEGARA directory exists
     megara_dir = ob / 'MEGARA'
     if not megara_dir.is_dir():
         raise ValueError(f"MEGARA directory does not exist for {ob}.")
-    
+
     config_file_path = ob / config_file
+
     if not config_file_path.is_file():
-        raise ValueError(f"Configuration file {config_file} does not exist in {ob}.")
-    else:
-        print(f"Using configuration file: {config_file_path}")
-        with open(config_file_path, 'r') as f:
-            config = yaml.safe_load(f)
-        
-        expected_keys = [
-            "VPH", "0_Bias", "1_TraceMap", "2_ModelMap", "3_WaveCalib", "3_WaveCalib_check",
-            "4_FiberFlat", "5_TwilightFlat", "6_LcbAdquisition", "7_StandardStar",
-            "8_LcbImage", "8_LcbImage_diffuse_light", "healing", #"8_generate_crmasks", 
-            "master_traces_LRU_20220325_healed"
-        ]
+        raise ValueError(
+            f"Configuration file {config_file} does not exist in {ob}."
+        )
 
-        # 1. Check if all expected keys are present in the configuration file
-        config_keys = list(config.keys())
-        if set(config_keys) != set(expected_keys):
-            unexpected = set(config_keys) - set(expected_keys)
-            missing = set(expected_keys) - set(config_keys)
-            raise ValueError(f"Unexpected or missing keys in configuration file.\n"
-                            f"Unexpected: {unexpected}\nMissing: {missing}")
-        
-        # 2. Keys that must have non-empty values for reduction process
-        mandatory_keys = [
-            "VPH", "0_Bias", "1_TraceMap", "3_WaveCalib", "3_WaveCalib_check",
-            "4_FiberFlat", "6_LcbAdquisition", "7_StandardStar", "8_LcbImage" #"8_generate_crmasks",
-        ]
-        for key in mandatory_keys:
-            if not config.get(key):
-                raise ValueError(f"The key '{key}' in the config_simulation.yaml file must have a non-empty value in the configuration.")
+    logger.info(f"Using configuration file: %s", config_file_path)
 
-        # 3. Extra validation for specific keys
-        if run_modelmap and not config.get("2_ModelMap"):
-            raise ValueError("The key '2_ModelMap' in the config_simulation.yaml file must have a value because run_modelmap=True.")
-        if run_twilight and not config.get("5_TwilightFlat"):
-            raise ValueError("The key '5_TwilightFlat' in the config_simulation.yaml file must have a value because run_twilight=True.")
-        vph_value = config.get("VPH", "")
-        if isinstance(vph_value, str) and vph_value.endswith("U"):
-            if not config.get("master_traces_LRU_20220325_healed"):
-                raise ValueError("The key 'master_traces_LRU_20220325_healed' in the config_simulation.yaml file must have a value because VPH is one of type 'U', e.g. LR-U.")
-    
+    with open(config_file_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    # Validation of the basic configuration file structure
+    if not isinstance(config, dict):
+        raise ValueError(
+            f"The configuration file {config_file} must contain "
+            "a YAML mapping of keys and values."
+        )
+
+    mandatory_keys = {
+        "VPH",
+        "0_Bias",
+        "1_TraceMap",
+        "3_WaveCalib",
+        "3_WaveCalib_check",
+        "4_FiberFlat",
+        "6_LcbAdquisition",
+        "7_StandardStar",
+        "8_LcbImage",
+    }
+
+    optional_keys = {
+        "2_ModelMap",
+        "5_TwilightFlat",
+        "8_LcbImage_diffuse_light",
+        "8_LcbImage_cleaned",
+        "healing",
+        "master_traces_LRU_20220325_healed",
+    }
+
+    expected_keys = mandatory_keys | optional_keys    # the total number of keys that should be in the config file
+
+    # Check for unexpected or missing keys
+    config_keys = set(config)
+
+    unexpected = config_keys - expected_keys
+    missing = expected_keys - config_keys
+
+    if unexpected or missing:
+        raise ValueError(
+            "Unexpected or missing keys in configuration file.\n"
+            f"Unexpected: {sorted(unexpected)}\n"
+            f"Missing: {sorted(missing)}"
+        )
+
+    # Check types
+    for key, value in config.items():
+        if value is not None and not isinstance(value, str):
+            raise ValueError(
+                f"The value associated with '{key}' must be "
+                f"a string or empty, not {type(value).__name__}."
+            )
+
+    # Check mandatory keys for non-empty values
+    for key in mandatory_keys:
+        value = config.get(key)
+        if value is None or not value.strip():
+            raise ValueError(
+                f"The key '{key}' in {config_file} "
+                "must have a non-empty value."
+            )
+
+    # Check specific conditions for optional keys based on other parameters
+    conditional_keys = {
+        "2_ModelMap": run_modelmap,
+        "5_TwilightFlat": run_twilight,
+    }
+
+    for key, enabled in conditional_keys.items():
+
+        if enabled and not config.get(key):
+            raise ValueError(
+                f"The key '{key}' must have a non-empty value "
+                "because the corresponding reduction step has been called in the command line."
+            )
+
     work_dir = ob / 'work'
     work_megara_dir = work_dir / 'MEGARA'
-    print(work_dir)
+    logger.debug("The established working directory for simulations is: %s",work_dir)
     
     # Define the directory to store the final_rss.fits
     results_dir = ob / 'simulation_results'
     nstart = get_num_start(results_dir)
-    print(f'simulations will start from number: {nstart}')
+    logger.info("Simulations will start from number: %d", nstart)
     abs_results_dir = os.path.abspath(results_dir)
     
     if not ask_confirmation(nstart, nsimul, results_dir):
-        print("Action aborted. No changes were made.")
+        logger.info("Action aborted. No changes were made.")
         return
 
     for i in range(nsimul):
-        print(f"Simulation and reduction number: {i+1}")
+        logger.info("Simulation and reduction number: %d", i+1)
 
         # Check if work directory exists
         if work_dir.is_dir():
-            print('work directory already exists')
+            logger.debug('work directory already exists')
+            
             # Delete work directory and everything inside it
             shutil.rmtree(work_dir, ignore_errors=True)
-            print(f'work directory {work_dir} deleted')
+            logger.debug('work directory %s deleted', work_dir)
 
         # Create the directory once it has been deleted
         work_dir.mkdir()
         work_megara_dir.mkdir()
-        print('work/MEGARA/ directory created')
+        logger.debug('work/MEGARA/ directory created')
         
         # From MEGARA/ directory, copy all files *.yaml to work/MEGARA/
         for file in megara_dir.glob('*.yaml'):
             shutil.copy(file, work_megara_dir / file.name)
-            print('copying', file.name, 'to', work_megara_dir)
+            logger.debug('copying %s to %s', file.name, work_megara_dir)
 
-        # Copy the ca3558e3-e50d-4bbc-86bd-da50a0998a48 tree but empty
-        calibration_dir = megara_dir / 'ca3558e3-e50d-4bbc-86bd-da50a0998a48'
-        calibration_work_dir = work_megara_dir / 'ca3558e3-e50d-4bbc-86bd-da50a0998a48'
-        shutil.copytree(calibration_dir, calibration_work_dir)
-        print('copying', calibration_dir, 'to', calibration_work_dir)
-        
-        for dirpath, dirnames, filenames in os.walk(calibration_work_dir):
-            for filename in filenames:
-                if filename not in ['master_bpm.fits'] and not filename.endswith('.lis'):
-                    file_path = os.path.join(dirpath, filename)
-                    try:
-                        os.remove(file_path)
-                        print('removing', file_path)
-                    except Exception as e:
-                        print(f"Error removing {file_path}: {e}")
+        # create the calibration directory in work/MEGARA/ using inittree
+        logger.info("Initializing calibration directory in work/MEGARA/ using megaradrp-inittree...")
+        subprocess.run(["megaradrp-inittree"], cwd=work_megara_dir, check=True,)
+        logger.debug("Calibration directory initialized in %s", work_megara_dir)
 
-        # If the file healing.yaml exists, set run_healing to True
-        if config.get("healing"):
-            healing_filename = config["healing"] + '.yaml'
-            healing_yaml_path = work_megara_dir / healing_filename
-            run_healing = healing_yaml_path.is_file()
-            print('run_healing is set to:', run_healing)
-            if not run_healing:
-                raise FileNotFoundError(f"The file needed for 'healing' step: {healing_yaml_path} was not found.")
-        else:
-            run_healing = False
-            print("No healing of traces for this simulation and reduction.")
-
-        # If the file master_traces_LRU_20220325_healed.json exists, copy it to megara_work_dir and set run_LRU to True
-        if config.get("master_traces_LRU_20220325_healed"):
-            master_traces_name = config["master_traces_LRU_20220325_healed"] + '.json'
-            master_traces_LRU_path = megara_dir / master_traces_name
-            run_LRU = master_traces_LRU_path.is_file()
-            print('run_LRU is set to:', run_LRU)
-            if not run_LRU:
-                raise FileNotFoundError(
-                    f"The file needed for'master_traces_LRU_20220325_healed' step: {master_traces_LRU_path} was not found."
-                )
-            shutil.copy(master_traces_LRU_path, work_megara_dir / master_traces_name)
-            print('copying', master_traces_LRU_path, 'to', work_megara_dir / master_traces_name)
-        else:
-            run_LRU = False
-            print("No VPH-U traces template for this simulation and reduction")
-
-        # If the 8_LcbImage_diffuse_light.yaml file exists, set run_diffuselight to True
-        if config.get("8_LcbImage_diffuse_light"):
-            diffuse_light_filename = config["8_LcbImage_diffuse_light"] + '.yaml'
-            diffuse_light_yaml_path = work_megara_dir / diffuse_light_filename
-            run_diffuselight = diffuse_light_yaml_path.is_file()
-            print('run_diffuselight is set to:', run_diffuselight)
-            if not run_diffuselight:
-                raise FileNotFoundError(f"The file needed for 'diffuse light' step: {diffuse_light_yaml_path} was not found.")
-        else:
-            run_diffuselight = False
-            print("No diffuse light for this simulation and reduction.")
-
-        # Now, we copy the data/ directory from MEGARA to work
+        # Now, we copy the data/ directory from MEGARA to work and exclude MEGARA raw images
         data_dir = megara_dir / 'data'
         data_work_dir = work_megara_dir / 'data'
 
         ignored_data_files = []
         for file in data_dir.iterdir():
-            if file.name.startswith('0') and file.name.endswith('.fits'):  #or file.name == 'crmask.fits':
+            if file.name.startswith('0') and file.name.endswith('.fits'):
                 ignored_data_files.append(file.name)
+        logger.debug("Files to be ignored during data copy: %s", ignored_data_files)
 
-        # Copy the data directory to work, ignoring the files in ignored_data_files
         shutil.copytree(data_dir, data_work_dir, ignore=shutil.ignore_patterns(*ignored_data_files))
-        print('copying', data_dir, 'to', data_work_dir)
-        print('ignoring files:', ignored_data_files)
+        logger.info("Auxiliary data files copied to %s", data_work_dir)
 
+        # activate healing the traces if the file healing.yaml exists
+        if config.get("healing"):
+            healing_filename = config["healing"] + '.yaml'
+            healing_yaml_path = work_megara_dir / healing_filename
+
+            run_healing = healing_yaml_path.is_file()
+            logger.debug("run_healing is set to: %s",run_healing)
+
+            if not run_healing:
+                raise FileNotFoundError(f"The file needed for 'healing' step: {healing_yaml_path} was not found.")
+        else:
+            run_healing = False
+            logger.info("No healing of traces for this simulation and reduction.")
+
+        # activate LRU if the file master_traces_LRU_20220325_healed.json exists
+        if config.get("master_traces_LRU_20220325_healed"):
+            master_traces_name = config["master_traces_LRU_20220325_healed"] + ".json"
+            master_traces_LRU_path = megara_dir / master_traces_name
+
+            if not master_traces_LRU_path.is_file():
+                raise FileNotFoundError(f"The configured healed master traces file was not found: {master_traces_LRU_path}")
+
+            run_LRU = True
+            destination = work_megara_dir / master_traces_name
+            shutil.copy(master_traces_LRU_path, destination)
+
+            logger.info("Healed LR-U master traces enabled.")
+            logger.debug("Copying %s to %s", master_traces_LRU_path, destination)
+
+        else:
+            run_LRU = False
+            logger.debug("No healed LR-U master traces provided.")
+
+        
+        # activate diffuse light if the file 8_LcbImage_diffuse_light.yaml exists
+        if config.get("8_LcbImage_diffuse_light"):
+            diffuse_light_filename = config["8_LcbImage_diffuse_light"] + ".yaml"
+            diffuse_light_yaml_path = work_megara_dir / diffuse_light_filename
+
+            run_diffuselight = diffuse_light_yaml_path.is_file()
+            logger.debug("run_diffuselight is set to: %s", run_diffuselight)
+
+            if not run_diffuselight:
+                raise FileNotFoundError(
+                    f"The file needed for the diffuse-light step "
+                    f"was not found: {diffuse_light_yaml_path}"
+                )
+
+            logger.info("Diffuse-light correction enabled.")
+        else:
+            run_diffuselight = False
+            logger.info("Diffuse-light correction disabled.")
+
+
+        # activate Cosmic-ray cleaning using numina/crmasks
+        if config.get("8_LcbImage_cleaned"):
+            cleaned_filename = config["8_LcbImage_cleaned"] + ".yaml"
+            cleaned_yaml_path = work_megara_dir / cleaned_filename
+            crmasks_path = data_work_dir / "crmasks.fits"
+
+            missing_files = []
+            if not cleaned_yaml_path.is_file():
+                missing_files.append(str(cleaned_yaml_path))
+            if not crmasks_path.is_file():
+                missing_files.append(str(crmasks_path))
+            if missing_files:
+                raise FileNotFoundError(
+                    "Cosmic-ray cleaning was requested, but the following "
+                    "required file(s) were not found:\n"
+                    + "\n".join(f"  - {file}" for file in missing_files))
+
+            run_crclean = True
+
+            logger.info("Cosmic-ray cleaning enabled.")
+            logger.debug("Cosmic-ray cleaning YAML: %s", cleaned_yaml_path)
+            logger.debug("Cosmic-ray mask: %s", crmasks_path)
+
+        else:
+            run_crclean = False
+            logger.info("Cosmic-ray cleaning disabled.")
+
+        #------------------------SIMULATION OF FRAMES------------------------
         # At this point, we are ready to start simulating images
         simulate_frames(megara_dir, data_work_dir, work_megara_dir, config)
 
-        print('All the frames have been simulated')
+        logger.info('All the frames have been simulated')
 
-        # Now we change the directory to the work directory:
-        original_dir = os.getcwd() # Save the current working directory
-        megara_reduction_dir = os.path.join(original_dir, work_dir)
-        os.chdir(megara_reduction_dir) 
-        print('the directory has been changed to:', os.getcwd())
 
-        # We have to change the rootdir for control.yaml:
-        print('set the correct directory for work/MEGARA/control.yaml')
-        command_control_yaml = """sed -i '' 's@rootdir:\ .*@rootdir:\ '"$PWD"'@' MEGARA/control.yaml"""
-        print('\033[1m\033[31m ' + f"$ {command_control_yaml}" + '\033[0m\n')
-        subprocess.run(command_control_yaml, shell=True)
-        print('the rootdir has been set to:', os.getcwd())
+        #------------------------REDUCTION OF SIMULATED FRAMES---------------
 
-        # Start the reduction process:
-        reduction_dir = os.path.join(original_dir, work_megara_dir)
+        # Save the current working directory
+        original_dir = Path.cwd()
+
+        # Reduction must be run from work/MEGARA
+        reduction_dir = work_megara_dir.resolve()
+
+        if not reduction_dir.is_dir():
+            raise FileNotFoundError(f"MEGARA reduction directory not found: {reduction_dir}")
+
         os.chdir(reduction_dir)
-        print('the directory has been changed to:', os.getcwd())
-        
-        reduce_simulations(i, config, nstart, abs_results_dir, run_modelmap, run_twilight, run_healing, run_LRU, run_diffuselight, pixel_size, history_line_command)
-        
+        logger.info("Starting reduction of simulated frames.")
+        logger.debug("Working directory changed to: %s", Path.cwd())
+
+        reduce_simulations(i, config, nstart, abs_results_dir, 
+                          run_modelmap, run_twilight, 
+                          run_healing, run_LRU, run_diffuselight, run_crclean,
+                          pixel_size, history_line_command)
+
         # we go back to the directory where the script was executed:
         os.chdir(original_dir)   # Go back to original directory
-        print('the directory has been changed to:', os.getcwd())   
+        logger.info('The directory has been changed to: %s', os.getcwd())     
 
 
 
@@ -315,16 +393,32 @@ def main():
     parser.add_argument('--run_modelmap', action='store_true', help='Run ModelMap step.')
     parser.add_argument('--run_twilight', action='store_true', help='Run Twilight step.')
     parser.add_argument('--pixel_size', type=float, help='Pixel size in arcseconds for the conversion of RSS into a cube.', default=0.4)
+    parser.add_argument("--log-level", type=str, choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], default="INFO", help="Set the logging level. Default: INFO.")
     args = parser.parse_args()
+
+    # logging configuration
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(levelname)s: %(message)s",
+    )
+
+    logger.debug("Parsed arguments: %s", vars(args))
+
+    # input arguments
 
     obj_vph = f'{args.obj_name}/{args.vph}'
     ob_list = list(Path('.').glob(obj_vph))
+
     config_file = args.config_file
     run_modelmap = args.run_modelmap
     run_twilight = args.run_twilight
     pixel_size = args.pixel_size
-    print(f"Running ModelMap: {run_modelmap}")
-    print(f"Running Twilight: {run_twilight}")
+
+    logger.info("Running ModelMap: %s", run_modelmap)
+    logger.info("Running Twilight: %s", run_twilight)
+
+    logger.debug("Object/VPH search pattern: %s", obj_vph)
+    logger.debug("Found OB directories: %s", ob_list)
     
     history_line_command = (
             f"$ python simulate_MEGARA_reductions.py "
@@ -333,23 +427,34 @@ def main():
             f"--num_simul {args.num_simul} "
             f"{'--run_modelmap' if run_modelmap else ''} "
             f"{'--run_twilight' if run_twilight else ''}"
-            f" --pixel_size {pixel_size}"
+            f" --pixel_size {pixel_size} "
+            f"--log-level {args.log_level}"
         )
-    print(history_line_command)
+    logger.debug("History line command: %s", history_line_command)
+
+    # Validate arguments
+    logger.debug("Validating arguments...")
     
     if args.num_simul < 1:
         raise ValueError("Number of simulations must be at least 1.")
     else:
-        print(f"Number of simulations: {args.num_simul}")
+        logger.info("Number of simulations: %s", args.num_simul)
         nsimul = args.num_simul
+
     if pixel_size <= 0:
         raise ValueError("Pixel size must be a positive number.")
     else:
-        print(f"Pixel size: {pixel_size} arcseconds")
+        logger.info("Pixel size: %s arcseconds", pixel_size)
+
+    # locate observations
     if not ob_list:
-        print(f"No galaxies found with name {obj_vph}")
+        logger.info("No galaxies found with name: %s", obj_vph)
         return
+
+    logger.info("Found %d observation(s) matching pattern %s",len(ob_list), obj_vph)
+    
     for ob in ob_list:
+        logger.debug("Processing observation: %s", ob)
         simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, pixel_size, history_line_command)
         
 
