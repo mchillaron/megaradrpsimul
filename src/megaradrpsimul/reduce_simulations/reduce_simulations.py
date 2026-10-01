@@ -24,7 +24,7 @@ def reduce_simulations(niter, config, nstart,
                        abs_results_dir, 
                        run_modelmap=False, run_twilight=False, 
                        run_healing=False, run_LRU=False, 
-                       run_diffuselight=False, 
+                       run_diffuselight=False, run_crclean=False, 
                        pixel_size=0.4, 
                        history_line_command=None):
     """Reduce the simulated images using the TEA pipeline.
