@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Universidad Complutense de Madrid
+# Copyright 2025-2026 Universidad Complutense de Madrid
 #
 # This file is part of megaradrpsimul.
 #
@@ -8,8 +8,8 @@
 #
 
 from pathlib import Path
-from .reduce_simulations.reduce_simulations import reduce_simulations
-from .simulate_frames.simulate_frames import simulate_frames
+from rich.console import Console
+from rich.logging import RichHandler
 
 import argparse
 import logging
@@ -18,8 +18,12 @@ import re
 import shutil
 import subprocess
 import yaml
- 
+
+from .reduce_simulations.reduce_simulations import reduce_simulations
+from .simulate_frames.simulate_frames import simulate_frames
+
 logger = logging.getLogger(__name__)
+console = Console()
 
 def get_num_start(results_dir):
     """
@@ -373,7 +377,7 @@ def simulate_MEGARA_reductions(ob,
         logger.info("Starting reduction of simulated frames.")
         logger.debug("Working directory changed to: %s", Path.cwd())
 
-        reduce_simulations(i, config, nstart, abs_results_dir, 
+        reduce_simulations(i, config, nstart, abs_results_dir,
                           run_modelmap, run_twilight, 
                           run_healing, run_LRU, run_diffuselight, run_crclean,
                           pixel_size, history_line_command)
@@ -389,7 +393,7 @@ def main():
     parser.add_argument('--obj_name', type=str, help='Name of the object to simulate.', default='obj_*')
     parser.add_argument('--vph', type=str, help='VPH name.', default='VPH_*')
     parser.add_argument('-c', '--config_file', type=str, help='Name of the configuration file.', default='config_simulation.yaml')
-    parser.add_argument('-n', '--num_simul', type=int, help='Number of simulations to perform.', default=1)
+    parser.add_argument('-n', '--num_simul', type=int, help='Number of simulations to perform.', default=0)
     parser.add_argument('--run_modelmap', action='store_true', help='Run ModelMap step.')
     parser.add_argument('--run_twilight', action='store_true', help='Run Twilight step.')
     parser.add_argument('--pixel_size', type=float, help='Pixel size in arcseconds for the conversion of RSS into a cube.', default=0.4)
@@ -397,14 +401,35 @@ def main():
     args = parser.parse_args()
 
     # logging configuration
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(levelname)s: %(message)s",
-    )
+    if args.log_level in ["DEBUG", "WARNING", "ERROR", "CRITICAL"]:
 
-    logger.debug("Parsed arguments: %s", vars(args))
+        format_log = "%(message)s"
+        handlers = [
+            RichHandler(
+                console=console,
+                show_time=False,
+                show_level=True,
+                show_path=True,
+                markup=True,
+                rich_tracebacks=True,
+            )
+        ]
 
-    # input arguments
+    else:
+
+        format_log = "%(message)s"
+        handlers = [
+            RichHandler(
+                console=console,
+                show_time=False,
+                show_level=False,
+                show_path=False,
+                markup=True,
+            )
+        ]
+
+    logging.basicConfig(level=args.log_level, format=format_log, handlers=handlers)
+    logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
     obj_vph = f'{args.obj_name}/{args.vph}'
     ob_list = list(Path('.').glob(obj_vph))
