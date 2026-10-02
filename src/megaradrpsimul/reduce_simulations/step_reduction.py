@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Universidad Complutense de Madrid
+# Copyright 2025-2026 Universidad Complutense de Madrid
 #
 # This file is part of megaradrpsimul.
 #
@@ -7,53 +7,72 @@
 # License-Filename: LICENSE
 #
 
-"""Run each reduction step of the pipeline."""
+"""Run one reduction step and optionally copy its product
+   into the corresponding calibration tree."""
 
-import subprocess
 from datetime import datetime
+from pathlib import Path
 
+import logging
+import shutil
+import subprocess
 
-def step_reduction(yaml_file, step_name, product_file=None, calib_folder_path=None):
-    """Run each reduction step of the pipeline.
+logger = logging.getLogger(__name__)
+
+def step_reduction(yaml_file, step_name, calib_label_dir,
+                   product_file=None, 
+                   calib_folder_path=None):
+    
+    """
+    Run one reduction step and optionally copy its product
+    into the corresponding calibration tree.
+
     Parameters
     ----------
     yaml_file : str
         Path to the YAML file.
     step_name : str
         The step name extracted from the YAML file.
+    calib_label_dir : Path instance
+        Path to the calibration label directory.
     product_file : str, optional
         The name of the product file to be copied (default is None).
     calib_folder_path : str, optional
         The path to the calibration folder (default is None).
     """
 
-    calib_dir_name = "ca3558e3-e50d-4bbc-86bd-da50a0998a48"
-
     command_run_list = [
         """numina""",
         """run""",
-        f"""{yaml_file}""",
-        """--link-files""",
-        """-r""",
-        """control.yaml"""
+        yaml_file,
     ]
-    print('\033[1m\033[31m ' + f"$ {' '.join(command_run_list)}" + '\033[0m\n')
+    
+    logger.info("[bold red]$ %s[/bold red]", " ".join(command_run_list))
 
     t_start = datetime.now()
-    subprocess.run(command_run_list, capture_output=False, text=True)  # capture_output=True allows to capture stdout and stderr, also add sp = subprocess ...
+    sp = subprocess.run(command_run_list, capture_output=True, text=True, check=True) 
     t_stop = datetime.now()
-    #print(f'std_err: {sp.stderr}')
-    #print(f'std_out: {sp.stdout}')
-    print('\033[1m\033[32m ' + f'Elapsed time: {t_stop - t_start}' + '\033[0m\n')
 
-    if product_file!= None and calib_folder_path != None:
-        command_copy_list = [
-            """cp""",
-            f"""obsid{step_name}_results/{product_file}""",
-            f"""{calib_dir_name}/{calib_folder_path}/"""
-        ]
+    logger.debug("stdout:\n%s", sp.stdout)
+    logger.debug("stderr:\n%s", sp.stderr)
 
-        print('\033[1m\033[31m ' + f"$ {' '.join(command_copy_list)}" + '\033[0m\n')
-        sp = subprocess.run(command_copy_list, capture_output=True, text=True)
-        #print(f'std_err: {sp.stderr}')
-        #print(f'std_out: {sp.stdout}')
+    logger.info("Elapsed time: %s", t_stop - t_start)
+
+    # Copy the product file to the calibration tree if specified
+    if product_file is not None and calib_folder_path is not None:
+
+        source = (Path(f"obsid{step_name}_results") / product_file)
+        destination_dir = (calib_label_dir / calib_folder_path)
+
+        if not source.is_file():
+            raise FileNotFoundError(f"Reduction product not found: {source}")
+
+        if not destination_dir.is_dir():
+            raise FileNotFoundError(
+                f"Calibration destination directory not found: "
+                f"{destination_dir}"
+            )
+        
+        destination = destination_dir / product_file
+        shutil.copy2(source, destination)
+        logger.info("[bold red]Copying %s -> %s[/bold red]", source, destination)
