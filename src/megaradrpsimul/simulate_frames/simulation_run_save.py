@@ -10,9 +10,12 @@
 """Simulate images using the generator and save images."""
 
 from astropy.io import fits
-import shutil
-import numpy as np
 
+import logging
+import numpy as np
+import shutil
+
+logger = logging.getLogger(__name__)
 
 def simulation_run_save(data_work_dir, img_path, generator, type_image): 
     """Simulate images using the generator and save images.
@@ -37,10 +40,10 @@ def simulation_run_save(data_work_dir, img_path, generator, type_image):
     # Copying the original image to the destination directory
     # then we only update the data with the simulated data
     shutil.copy(img_path, destination_file)
-    print(f"Image {img_path} copied at: {destination_file}")
+    logger.info(f"Image {img_path} copied at: {destination_file}")
     
     with fits.open(destination_file, mode='update') as hdul:
         data_round = np.round(image_exposure.data).astype(np.uint16)  
         hdul[0].data = data_round
         hdul.flush()
-        print(f"Updated data for: {destination_file}")
+        logger.info(f"Updated data for: {destination_file}")

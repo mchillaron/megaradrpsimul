@@ -9,9 +9,13 @@
 
 """Smooth the images using Savitzky-Golay and median filters."""
 
-import numpy as np
 from scipy.signal import savgol_filter
 from scipy.ndimage import median_filter
+
+import logging
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from megaradrpsimul import CCDregions
 
@@ -48,7 +52,7 @@ def smooth_frames(cleaned_images):
                 if 'median_size' in region_params:
                     median_size = region_params['median_size']
                     filtered_data = median_filter(region_data, size=median_size)  # vertical median filter in these regions
-                    print(f"Median filter applied to {region_name}")
+                    logger.info(f"Median filter applied to %s", region_name)
                 else:
                     raise ValueError(f"'median_size' is missing in region {region_name}")
                 
@@ -61,7 +65,7 @@ def smooth_frames(cleaned_images):
                     size1_SG += 1    # make sure it is odd
                 
                 filtered_data = savgol_filter(region_data, window_length=size1_SG, polyorder=pol_order1_SG, axis=axis1_SG)   # Apply only one Savitzky-Golay filter
-                print(f"Savitzky-Golay applied in {region_name}")
+                logger.info(f"Savitzky-Golay applied in %s", region_name)
         
                 if num_filters_SG == 2:
                     size2_SG = region_params['size2_SG']
@@ -73,7 +77,7 @@ def smooth_frames(cleaned_images):
 
                     filtered_data = savgol_filter(filtered_data, window_length=size2_SG, 
                                                   polyorder=pol_order2_SG, axis=axis2_SG)
-                    print(f"Second Savitzky-Golay filter applied in {region_name}")
+                    logger.info(f"Second Savitzky-Golay filter applied in %s", region_name)
 
             zero_raw_image[slice2d.python] = filtered_data
             
@@ -82,8 +86,8 @@ def smooth_frames(cleaned_images):
         smoothed_images[smoothed_image_name] = zero_raw_image
 
         if np.any(zero_raw_image == 0):
-            print("There are still zeros in the smoothed bias image.")
+            logger.info("There are still zeros in the smoothed bias image.")
         else:
-            print("No zeros in the smoothed bias image.")
+            logger.info("No zeros in the smoothed bias image.")
             
     return smoothed_images

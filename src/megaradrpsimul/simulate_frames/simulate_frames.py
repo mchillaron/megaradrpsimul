@@ -13,6 +13,7 @@ from astropy import units as u
 from astropy.io import fits
 from tqdm import tqdm
 
+import logging
 import numpy as np
 import os
 import pickle
@@ -24,6 +25,8 @@ from .simulation_run_save import simulation_run_save
 from .calculate_bias_readout_noise import calculate_bias_readout_noise
 from .simulate_frames_step import simulate_frames_step
 from .open_read_yaml_simulation import open_read_yaml_simulation
+
+logger = logging.getLogger(__name__)
 
 def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     """Simulate frames for MEGARA data reduction.
@@ -42,26 +45,29 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
         Dictionary containing the configuration for the simulation.
    
     """
-    
-    print('starting simulation of frames')
+
+    print("\n")
+    logger.info('[bold blue]Starting simulation of frames [bold blue]')
+    print("\n")
 
     #.................................... BIAS ..........................................
+    logger.info('[bold blue]Simulating BIAS frames [bold blue]')
     bias_filename = config["0_Bias"] + '.yaml'
     yaml_file_bias = work_megara_dir / bias_filename # it is a path instance
     list_bias = open_read_yaml_simulation(megara_dir, yaml_file_bias)
-    print('creating bias frames list')
-    
+    logger.info('Creating bias frames list')
+
     bias_smoothed_images_file = megara_dir / 'simul-output_smoothed_bias.pkl'
 
     if os.path.exists(bias_smoothed_images_file):
         with open(bias_smoothed_images_file, 'rb') as f:
             bias_smoothed_images = pickle.load(f)
-            print("Loaded smoothed bias images from file.")
+            logger.info("Loaded smoothed bias images from file.")
     else:
         # If the bias images have not been smoothed yet, we run the steps and create the pickle file.
         bias_cleaned_images = cosmicray_cleaning(list_bias)
         bias_smoothed_images = smooth_frames(bias_cleaned_images)
-        print("Saved smoothed bias images to file.")
+        logger.info("Saved smoothed bias images to file.")
         with open(bias_smoothed_images_file, 'wb') as f:
             pickle.dump(bias_smoothed_images, f)
 
@@ -96,7 +102,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
         generator_name = f"generator_{idx}"
         bias_generators[generator_name] = bias_image_generator
 
-    print('Bias generators created')
+    logger.info('Bias generators created')
 
     all_noise_arrays = np.array(all_noise_arrays)
     #readout_noise_mean = np.mean(all_noise_arrays, axis=0) 
@@ -108,7 +114,8 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
         generator = bias_generators[generator_name]
         simulation_run_save(data_work_dir, img_path, generator, type_image='bias')
 
-    print('\033[1m\033[34m ' + "all bias images have been simulated" + '\033[0m\n')
+    logger.info("[bold blue]All bias images have been simulated [bold blue]")
+    print("\n")
 
     #.................................... Gain ..........................................
     # Gain values from header keywords
@@ -118,6 +125,7 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
     gain_array[0:2106, :] = gain_bottom.value
 
     #.................................... TRACEMAP ..........................................
+    logger.info('[bold blue]Simulating TraceMap frames [bold blue]')
     traces_filename = config["1_TraceMap"] + '.yaml'
     yaml_file_traces = work_megara_dir / traces_filename 
     list_traces = open_read_yaml_simulation(megara_dir, yaml_file_traces)
@@ -129,10 +137,11 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
                         bias_smoothed_median=bias_smoothed_median_round,
                         gain_array=gain_array,
                         readout_noise_median=readout_noise_median) 
-    
-    print('\033[1m\033[34m ' + "all TraceMap images have been simulated" + '\033[0m\n')
+    logger.info('[bold blue]All TraceMap images have been simulated [bold blue]')
+    print("\n")
 
     #.................................... ArcCalibration ....................................
+    logger.info('[bold blue]Simulating ArcCalibration frames [bold blue]')
     arc_filename = config["3_WaveCalib"] + '.yaml'
     yaml_file_arc = work_megara_dir / arc_filename
     list_arc = open_read_yaml_simulation(megara_dir, yaml_file_arc)
@@ -146,9 +155,11 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
                         gain_array=gain_array,
                         readout_noise_median=readout_noise_median)
     
-    print('\033[1m\033[34m ' + "all ArcCalibration images have been simulated" + '\033[0m\n')
-    
+    logger.info('[bold blue]All ArcCalibration images have been simulated [bold blue]')
+    print("\n")
+
     # ..................................LcbImage Star ..........................................
+    logger.info('[bold blue]Simulating LcbImage frames [bold blue]')
     lcb_filename = config["6_LcbAdquisition"] + '.yaml'
     yaml_file_lcb = work_megara_dir / lcb_filename
     list_lcb = open_read_yaml_simulation(megara_dir, yaml_file_lcb)
@@ -162,9 +173,11 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
                         gain_array=gain_array,
                         readout_noise_median=readout_noise_median)
     
-    print('\033[1m\033[34m ' + "all LcbImage images have been simulated" + '\033[0m\n')
+    logger.info('[bold blue]All LcbImage images have been simulated [bold blue]')
+    print("\n")
 
     # ..................................Science Object ..........................................
+    logger.info('[bold blue]Simulating Science LcbImage frames [bold blue]')
     lcb_object_filename = config["8_LcbImage"] + '.yaml'
     yaml_file_lcb_object = work_megara_dir / lcb_object_filename
     list_lcb_object = open_read_yaml_simulation(megara_dir, yaml_file_lcb_object)
@@ -177,4 +190,5 @@ def simulate_frames(megara_dir, data_work_dir, work_megara_dir, config):
                         gain_array=gain_array,
                         readout_noise_median=readout_noise_median)
     
-    print('\033[1m\033[34m ' + "all LcbImage Object images have been simulated" + '\033[0m\n')
+    logger.info('[bold blue]All Science LcbImage images have been simulated [bold blue]')
+    print("\n")

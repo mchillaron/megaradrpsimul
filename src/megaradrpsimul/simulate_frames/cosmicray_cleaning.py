@@ -11,9 +11,13 @@
 
 from astropy.io import fits
 from tqdm import tqdm
+
+import logging
 import teareduce as tea
 
 from megaradrpsimul import CCDregions
+
+logger = logging.getLogger(__name__)
 
 def cosmicray_cleaning(list_bias):
     """Clean the images from cosmic rays using the regions defined in CCDregions.py.
@@ -32,7 +36,7 @@ def cosmicray_cleaning(list_bias):
     cleaned_images : dict
         Dictionary with cleaned images."""
 
-    print('cleaning cosmic rays')
+    logger.info('Cleaning cosmic rays')
     regions_cosmicrays = CCDregions.regions_cosmicrays
     cleaned_images = {}
 
@@ -41,13 +45,13 @@ def cosmicray_cleaning(list_bias):
             data = hdul[0].data.astype(float)  # we convert to float to avoid errors
             naxis2, naxis1 = data.shape        # dimensions of the image
 
-            print(f"{idx}.Processing image {img_path} with shape ({naxis1}, {naxis2})")
+            logger.debug(f"{idx}.Processing image {img_path} with shape ({naxis1}, {naxis2})")
 
             cleaned_data = data.copy()         # creating a copy of the image to do changes
 
             for region_name, region_params in regions_cosmicrays.items():
                 slice2d = region_params['slice2d']
-                print(f"Processing region {slice2d}")
+                logger.debug(f"Processing region {slice2d}")
                 median_size = region_params['median_size']
                 tsigma_peak = region_params['tsigma_peak']
                 tsigma_tail = region_params['tsigma_tail']
@@ -67,6 +71,6 @@ def cosmicray_cleaning(list_bias):
             # We save the cleaned image in a dictionary:
             cleaned_image_name = f"cleaned_bias_{idx}"
             cleaned_images[cleaned_image_name] = cleaned_data
-            print(f"Image {img_path} cleaned from cosmis rays and saved as ({cleaned_image_name})")
-            print("................................................................................")
+            logger.info(f"Image {img_path} cleaned from cosmic rays and saved as ({cleaned_image_name})")
+
     return cleaned_images

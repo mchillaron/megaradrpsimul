@@ -9,10 +9,13 @@
 
 """Calculate the readout noise across the CCD based on top and bottom bias regions."""
 
+import logging
 import numpy as np
 import teareduce as tea
 
 from megaradrpsimul import CCDregions
+
+logger = logging.getLogger(__name__)
 
 def calculate_bias_readout_noise(data, data_smoothed, naxis2, naxis1):
     """
@@ -56,6 +59,6 @@ def calculate_bias_readout_noise(data, data_smoothed, naxis2, naxis1):
     noise_array = np.full((naxis2, naxis1), noise_top)
     noise_array[0:2106, :] = noise_bottom
 
-    print(f"Robust deviation for TopCCD is: {noise_top} and for BottomCCD is: {noise_bottom}")
+    logger.info(f"Robust deviation for TopCCD is: {noise_top} and for BottomCCD is: {noise_bottom}")
 
     return noise_array
