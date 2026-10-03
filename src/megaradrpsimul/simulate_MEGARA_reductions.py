@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import yaml
 
+from .find_ob_directories import find_ob_directories
 from .reduce_simulations.reduce_simulations import reduce_simulations
 from .simulate_frames.simulate_frames import simulate_frames
 
@@ -390,13 +391,13 @@ def simulate_MEGARA_reductions(ob,
 
 def main():
     parser = argparse.ArgumentParser(description='Simulate MEGARA reductions.')
-    parser.add_argument('--obj_name', type=str, help='Name of the object to simulate.', default='obj_*')
-    parser.add_argument('--vph', type=str, help='VPH name.', default='VPH_*')
-    parser.add_argument('-c', '--config_file', type=str, help='Name of the configuration file.', default='config_simulation.yaml')
-    parser.add_argument('-n', '--num_simul', type=int, help='Number of simulations to perform.', default=0)
-    parser.add_argument('--run_modelmap', action='store_true', help='Run ModelMap step.')
-    parser.add_argument('--run_twilight', action='store_true', help='Run Twilight step.')
-    parser.add_argument('--pixel_size', type=float, help='Pixel size in arcseconds for the conversion of RSS into a cube.', default=0.4)
+    parser.add_argument('--obj', type=str, help='Object directories must start with "obj_". Default: obj_*', default='obj_*')
+    parser.add_argument('--vph', type=str, help='VPH directories must start with "VPH_". Default: VPH_*', default='VPH_*')
+    parser.add_argument('-c', '--config-file', type=str, help='Name of the YAML configuration file.', default='config_simulation.yaml')
+    parser.add_argument('-n', '--num-simul', type=int, help='Number of simulations to perform.', default=1)
+    parser.add_argument('--run-modelmap', action='store_true', help='Run ModelMap step.')
+    parser.add_argument('--run-twilight', action='store_true', help='Run Twilight step.')
+    parser.add_argument('--pixel-size', type=float, help='Pixel size in arcseconds for the conversion of RSS into a cube.', default=0.4)
     parser.add_argument("--log-level", type=str, choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], default="INFO", help="Set the logging level. Default: INFO.")
     args = parser.parse_args()
 
@@ -431,8 +432,8 @@ def main():
     logging.basicConfig(level=args.log_level, format=format_log, handlers=handlers)
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
-    obj_vph = f'{args.obj_name}/{args.vph}'
-    ob_list = list(Path('.').glob(obj_vph))
+    obj = args.obj
+    vph = args.vph
 
     config_file = args.config_file
     run_modelmap = args.run_modelmap
@@ -442,17 +443,20 @@ def main():
     logger.info("Running ModelMap: %s", run_modelmap)
     logger.info("Running Twilight: %s", run_twilight)
 
-    logger.debug("Object/VPH search pattern: %s", obj_vph)
-    logger.debug("Found OB directories: %s", ob_list)
+    if obj is not None:
+        logger.debug("Object search pattern: %s", obj)
+    
+    if vph is not None:
+        logger.debug("VPH pattern: %s", vph)
     
     history_line_command = (
             f"$ python simulate_MEGARA_reductions.py "
-            f"--obj_name {args.obj_name} --vph {args.vph} "
-            f"--config_file {config_file} "
-            f"--num_simul {args.num_simul} "
-            f"{'--run_modelmap' if run_modelmap else ''} "
-            f"{'--run_twilight' if run_twilight else ''}"
-            f" --pixel_size {pixel_size} "
+            f"--obj {obj} --vph {vph} "
+            f"--config-file {config_file} "
+            f"--num-simul {args.num_simul} "
+            f"{'--run-modelmap' if run_modelmap else ''} "
+            f"{'--run-twilight' if run_twilight else ''}"
+            f" --pixel-size {pixel_size} "
             f"--log-level {args.log_level}"
         )
     logger.debug("History line command: %s", history_line_command)
@@ -472,12 +476,22 @@ def main():
         logger.info("Pixel size: %s arcseconds", pixel_size)
 
     # locate observations
+    ob_list = find_ob_directories(obj_pattern=obj, vph_pattern=vph,)
+
+    logger.debug("Found observation directories: %s", ob_list)
     if not ob_list:
-        logger.info("No galaxies found with name: %s", obj_vph)
+        logger.warning(
+            "No observation directories found from %s "
+            "using object pattern '%s' and VPH pattern '%s'.",
+            Path.cwd(),
+            obj,
+            vph,
+        )
         return
 
-    logger.info("Found %d observation(s) matching pattern %s",len(ob_list), obj_vph)
-    
+    logger.info("Found %d observation(s)",len(ob_list))
+
+    # Run simulations
     for ob in ob_list:
         logger.debug("Processing observation: %s", ob)
         simulate_MEGARA_reductions(ob, config_file, nsimul, run_modelmap, run_twilight, pixel_size, history_line_command)
